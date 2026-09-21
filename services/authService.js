@@ -8,36 +8,50 @@ const signToken = (user) => {
 };
 
 const signup = async ({ name, email, phone, password }) => {
-  const existingEmail = await User.findOne({ email });
-  if (existingEmail) throw new Error("Email already in use");
+  try {
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) throw new Error("Email already in use");
 
-  const existingPhone = await User.findOne({ phone });
-  if (existingPhone) throw new Error("Phone number already in use");
+    const existingPhone = await User.findOne({ phone });
+    if (existingPhone) throw new Error("Phone number already in use");
 
-  if (!password || password.length < 6) {
-    throw new Error("Password must be at least 6 characters");
+    if (!password || password.length < 6) {
+      throw new Error("Password must be at least 6 characters");
+    }
+
+    const salt = await bcrypt.genSalt(12);
+    const passwordHash = await bcrypt.hash(password, salt);
+
+    const user = new User({ name, email, phone, passwordHash, role: "employee" });
+    await user.save();
+
+    // Return token + sanitised user (toJSON strips passwordHash)
+    const token = signToken(user);
+    return { token, user: user.toJSON() };
+  } catch (error) {
+    if (error.message.includes('buffering timed out')) {
+      throw new Error('Database connection failed. Please try again later.');
+    }
+    throw error;
   }
-
-  const salt = await bcrypt.genSalt(12);
-  const passwordHash = await bcrypt.hash(password, salt);
-
-  const user = new User({ name, email, phone, passwordHash, role: "employee" });
-  await user.save();
-
-  // Return token + sanitised user (toJSON strips passwordHash)
-  const token = signToken(user);
-  return { token, user: user.toJSON() };
 };
 
 const login = async ({ email, password }) => {
-  const user = await User.findOne({ email }).select("+passwordHash");
-  if (!user) throw new Error("Invalid email or password");
+  try {
+    const user = await User.findOne({ email }).select("+passwordHash");
+    if (!user) throw new Error("Invalid email or password");
 
-  const isMatch = await bcrypt.compare(password, user.passwordHash);
-  if (!isMatch) throw new Error("Invalid email or password");
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) throw new Error("Invalid email or password");
 
-  const token = signToken(user);
-  return { token, user: user.toJSON() };
+    const token = signToken(user);
+    return { token, user: user.toJSON() };
+  } catch (error) {
+    if (error.message.includes('buffering timed out')) {
+      throw new Error('Database connection failed. Please try again later.');
+    }
+    throw error;
+  }
 };
 
 module.exports = { signup, login };

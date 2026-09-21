@@ -13,9 +13,14 @@ const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/safety_detective')
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/safety_detective', {
+  serverSelectionTimeoutMS: 5000, // Fail fast if DB is unreachable
+})
+  .then(() => console.log('MongoDB connected successfully'))
+  .catch(err => {
+    console.error('MongoDB connection error:', err);
+    // Optionally we can exit the process, but we'll let it log clearly.
+  });
 
 app.use('/api/auth', authRoutes);
 app.use('/api/game', gameRoutes);
